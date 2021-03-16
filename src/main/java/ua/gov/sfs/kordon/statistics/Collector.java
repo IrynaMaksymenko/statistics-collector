@@ -14,6 +14,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static java.lang.String.format;
+
 public class Collector {
 
     private static final String urlPattern = "http://kordon.sfs.gov.ua/uk/home/countries/%s/%s";
@@ -22,46 +24,46 @@ public class Collector {
 
     public static void main(String[] args) {
         final File baseDir = new File("statistics-collector-output");
+        createDirectory(baseDir.getAbsoluteFile());
 
         final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(new Runnable() {
-            public void run() {
-                System.out.println("Running job");
-                final long timer = System.currentTimeMillis();
-                final File timestampDir = new File(baseDir.getAbsoluteFile(), new SimpleDateFormat("YYYY-MM-dd HH:mm:ss").format(new Date()));
-                createDirectory(timestampDir.getAbsoluteFile());
+        scheduler.scheduleAtFixedRate(() -> {
+            System.out.println("Running job");
+            final long timer = System.currentTimeMillis();
+            final File timestampDir = new File(baseDir.getAbsoluteFile(), new SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss").format(new Date()));
+            createDirectory(timestampDir.getAbsoluteFile());
 
-                for (String country : countries) {
-                    final File countryDirectory = new File(timestampDir.getAbsoluteFile(), country);
-                    createDirectory(countryDirectory.getAbsoluteFile());
-                    for (String direction : directions) {
-                        try {
-                            URL url = new URL(String.format(urlPattern, country, direction));
-                            HttpURLConnection con = (HttpURLConnection) url.openConnection();
-                            con.setRequestMethod("GET");
-                            con.setConnectTimeout(5000);
-                            con.setReadTimeout(5000);
+            for (String country : countries) {
+                final File countryDirectory = new File(timestampDir.getAbsoluteFile(), country);
+                createDirectory(countryDirectory.getAbsoluteFile());
+                for (String direction : directions) {
+                    try {
+                        URL url = new URL(format(urlPattern, country, direction));
+                        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                        con.setRequestMethod("GET");
+                        con.setConnectTimeout(5000);
+                        con.setReadTimeout(5000);
 
-                            int status = con.getResponseCode();
-                            InputStream stream;
+                        int status = con.getResponseCode();
+                        InputStream stream;
 
-                            if (status > 299) {
-                                stream = con.getErrorStream();
-                            } else {
-                                stream = con.getInputStream();
-                            }
-
-                            final File file = new File(countryDirectory.getAbsoluteFile(), String.format("%s.html", direction));
-                            Files.copy(stream, file.toPath());
-                            con.disconnect();
-                        } catch (Exception e) {
-                            System.out.println(String.format("Failed to collect statistics for %s! %s", country, e));
+                        if (status > 299) {
+                            stream = con.getErrorStream();
+                        } else {
+                            stream = con.getInputStream();
                         }
+
+                        final File file = new File(countryDirectory.getAbsoluteFile(), format("%s.html", direction));
+                        Files.copy(stream, file.toPath());
+                        con.disconnect();
+                    } catch (Exception e) {
+                        System.out.printf("Failed to collect statistics for %s! %s%n", country, e);
                     }
                 }
-
-                System.out.println(String.format("Finished in %s ms", System.currentTimeMillis() - timer));
             }
+
+            System.out.printf("Finished in %s ms%n", System.currentTimeMillis() - timer);
         }, 0, 3, TimeUnit.HOURS);
     }
 
