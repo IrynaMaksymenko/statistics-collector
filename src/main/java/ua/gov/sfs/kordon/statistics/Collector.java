@@ -72,9 +72,11 @@ public class Collector {
                         final List<Element> cells = new ArrayList<>(row.select("td"));
                         if (cells.isEmpty()) {
                             System.out.printf("Unexpected html returned from %s: missing td", url);
+                            return;
                         }
                         if (cells.size() < 3) {
                             System.out.printf("Unexpected html returned from %s: missing some td", url);
+                            return;
                         }
 
                         final String checkpoint = cells.get(0).childNode(0).toString();
@@ -93,8 +95,7 @@ public class Collector {
                 }
 
             } else {
-                System.out.printf("Unexpected html returned from %s: missing table with class 'responsive'",
-                        url);
+                System.out.printf("Unexpected html returned from %s: missing table with class 'responsive'", url);
             }
         } catch (IOException ex) {
             System.out.printf("Failed to collect statistics for %s! %s%n", country, ex);
