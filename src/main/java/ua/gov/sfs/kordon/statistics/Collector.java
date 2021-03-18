@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -34,10 +32,11 @@ public class Collector {
             final LocalDateTime startTime = LocalDateTime.now();
 
             final File baseDir = createDirectory(null, "statistics-collector-output");
+            final CheckpointNaming checkpointNaming = CheckpointNaming.initialize(baseDir);
 
             for (Country country : Country.values()) {
                 for (Direction direction : Direction.values()) {
-                    collectStatistics(baseDir, startTime, country, direction);
+                    collectStatistics(baseDir, startTime, country, direction, checkpointNaming);
                 }
             }
 
@@ -46,19 +45,21 @@ public class Collector {
     }
 
     private static void collectStatistics(final File outputDirectory, final LocalDateTime startTime,
-                                          final Country country, final Direction direction) {
+                                          final Country country, final Direction direction,
+                                          final CheckpointNaming checkpointNaming) {
         try {
             final File countryDirectory = createDirectory(outputDirectory.getAbsoluteFile(), country.getReadableName());
             final String url = format(urlPattern, country.name().toLowerCase(), direction.name().toLowerCase());
             final Document document = Jsoup.connect(url).timeout(5000).get();
-            extractDataFromHtml(startTime, direction, countryDirectory, url, document);
+            extractDataFromHtml(startTime, direction, countryDirectory, url, document, checkpointNaming);
         } catch (Exception ex) {
             System.out.printf("Failed to collect statistics for %s! %s%n", country, ex);
         }
     }
 
     private static void extractDataFromHtml(final LocalDateTime startTime, final Direction direction,
-                                            final File countryDirectory, final String url, final Document document) {
+                                            final File countryDirectory, final String url, final Document document,
+                                            final CheckpointNaming checkpointNaming) {
         final Optional<Element> table =
                 document.getElementsByClass("responsive").stream().findAny();
         if (table.isPresent()) {
@@ -83,12 +84,12 @@ public class Collector {
                     }
 
                     final String checkpoint = getCellData(cells.get(0));
+                    final String checkpointShortName = checkpointNaming.getCheckpointShortName(checkpoint);
+                    final File checkpointDirectory = createDirectory(
+                            countryDirectory.getAbsoluteFile(), checkpointShortName);
+
                     final String carWaitingTime = getCellData(cells.get(1));
                     final String cargoWaitingTime = getCellData(cells.get(2));
-
-                    final File checkpointDirectory = createDirectory(countryDirectory.getAbsoluteFile(),
-                            getCheckpointShortName(checkpoint));
-
                     writeStatistics(checkpointDirectory, direction, startTime, carWaitingTime, cargoWaitingTime);
                 });
             } else {
@@ -115,13 +116,13 @@ public class Collector {
                     format("%s.csv", direction.getReadableName()));
             if (file.createNewFile()) {
                 Files.write(file.toPath(), singletonList(""
-                        + "Дата,"
-                        + "День тижня,"
-                        + "Час очікування легкових автомобілів (годин:хвилин),"
+                        + "Дата;"
+                        + "День тижня;"
+                        + "Час очікування легкових автомобілів (годин:хвилин);"
                         + "Час очікування вантажних автомобілів (годин:хвилин)"));
             }
 
-            Files.write(file.toPath(), singletonList(String.join(",",
+            Files.write(file.toPath(), singletonList(String.join(";",
                     startTime.format(dateTimeFormatter),
                     WeekDay.lookup(startTime.getDayOfWeek().getValue()).getReadableName(),
                     carWaitingTime,
@@ -142,23 +143,6 @@ public class Collector {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static String getCheckpointShortName(final String checkpointName) {
-        if (checkpointName.startsWith("Пункт пропуску ")) {
-            String shortName = checkpointName.substring(15);
-            if (shortName.contains(".")) {
-                shortName = shortName.substring(0, shortName.indexOf("."));
-            } else if (shortName.contains(" митного поста")) {
-                shortName = shortName.substring(0, shortName.indexOf(" митного поста"));
-            }
-            shortName = shortName.replaceAll("\"", "");
-            shortName = shortName.replaceAll("„", "");
-            shortName = shortName.replaceAll("”", "");
-            return shortName;
-        }
-        System.out.printf("Could not shorten %s", checkpointName);
-        return checkpointName;
     }
 
 }
