@@ -1,5 +1,8 @@
 package ua.gov.sfs.kordon.statistics;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.util.HashMap;
@@ -11,6 +14,7 @@ import static java.util.Collections.singletonList;
 
 public class CheckpointNaming {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckpointNaming.class);
     private final Map<String, String> checkpointNames = new HashMap<>();
     private File checkpointNamesFile;
 
@@ -35,7 +39,7 @@ public class CheckpointNaming {
                 }
             }
         } catch (Exception e) {
-            System.out.printf("Could not create/read `назви пунктів пропуску.csv`. %s", e);
+            log.error("Could not create/read `назви пунктів пропуску.csv`", e);
         }
 
         return checkpointNaming;
@@ -60,7 +64,7 @@ public class CheckpointNaming {
             saveCheckpointName(checkpointName, shortName);
             return shortName;
         }
-        System.out.printf("Could not shorten %s", checkpointName);
+        log.warn("Could not shorten {}", checkpointName);
         return checkpointName;
     }
 
@@ -81,7 +85,7 @@ public class CheckpointNaming {
                     singletonList(String.join(";", checkpointName, shortName)),
                     APPEND);
         } catch (Exception e) {
-            System.out.printf("Could not write to `назви пунктів пропуску.csv`. %s", e);
+            log.error("Could not write to `назви пунктів пропуску.csv`", e);
         }
     }
 }

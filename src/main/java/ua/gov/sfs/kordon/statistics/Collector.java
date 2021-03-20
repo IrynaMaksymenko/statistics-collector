@@ -4,13 +4,17 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -23,11 +27,12 @@ public class Collector {
 
     private static final String urlPattern = "http://kordon.sfs.gov.ua/uk/home/countries/%s/%s";
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Logger log = LoggerFactory.getLogger(Collector.class);
 
     public static void main(String[] args) {
         final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduler.scheduleAtFixedRate(() -> {
-            System.out.println("Running job");
+            log.info("Running job");
 
             final LocalDateTime startTime = LocalDateTime.now();
 
@@ -40,7 +45,7 @@ public class Collector {
                 }
             }
 
-            System.out.println("Finished job");
+            log.info("Finished job");
         }, 0, 3, TimeUnit.HOURS);
     }
 
@@ -53,7 +58,7 @@ public class Collector {
             final Document document = Jsoup.connect(url).timeout(5000).get();
             extractDataFromHtml(startTime, direction, countryDirectory, url, document, checkpointNaming);
         } catch (Exception ex) {
-            System.out.printf("Failed to collect statistics for %s! %s%n", country, ex);
+            log.error(format("Failed to collect statistics for %s", country), ex);
         }
     }
 
@@ -69,17 +74,17 @@ public class Collector {
 
                 final Elements rows = tableBody.get().select("tr");
                 if (rows.isEmpty()) {
-                    System.out.printf("Unexpected html returned from %s: missing tr", url);
+                    log.warn("Unexpected html returned from {}: missing <tr>", url);
                 }
 
                 rows.forEach(row -> {
                     final List<Element> cells = new ArrayList<>(row.select("td"));
                     if (cells.isEmpty()) {
-                        System.out.printf("Unexpected html returned from %s: missing td", url);
+                        log.warn("Unexpected html returned from {}: missing <td>", url);
                         return;
                     }
                     if (cells.size() < 3) {
-                        System.out.printf("Unexpected html returned from %s: missing some td", url);
+                        log.warn("Unexpected html returned from {}: missing some <td>", url);
                         return;
                     }
 
@@ -93,11 +98,11 @@ public class Collector {
                     writeStatistics(checkpointDirectory, direction, startTime, carWaitingTime, cargoWaitingTime);
                 });
             } else {
-                System.out.printf("Unexpected html returned from %s: missing tbody", url);
+                log.warn("Unexpected html returned from {}: missing <tbody>", url);
             }
 
         } else {
-            System.out.printf("Unexpected html returned from %s: missing table with class 'responsive'", url);
+            log.warn("Unexpected html returned from {}: missing table with class 'responsive'", url);
         }
     }
 
@@ -129,7 +134,7 @@ public class Collector {
                     cargoWaitingTime)),
                     APPEND);
         } catch (Exception e) {
-            System.out.printf("Failed to save statistics for %s! %s%n", checkpointDirectory.getAbsolutePath(), e);
+            log.error(format("Failed to save statistics for %s", checkpointDirectory.getAbsolutePath()), e);
         }
     }
 

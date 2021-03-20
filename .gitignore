@@ -2,3 +2,4 @@
 /statistics-collector-output/
 /target/
 /*.iml
+*.log
