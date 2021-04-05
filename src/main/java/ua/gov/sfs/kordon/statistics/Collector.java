@@ -55,7 +55,7 @@ public class Collector {
         try {
             final File countryDirectory = createDirectory(outputDirectory.getAbsoluteFile(), country.getReadableName());
             final String url = format(urlPattern, country.name().toLowerCase(), direction.name().toLowerCase());
-            final Document document = Jsoup.connect(url).timeout(5000).get();
+            final Document document = Jsoup.connect(url).get();
             extractDataFromHtml(startTime, direction, countryDirectory, url, document, checkpointNaming);
         } catch (Exception ex) {
             log.error(format("Failed to collect statistics for %s", country), ex);
