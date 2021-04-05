@@ -41,7 +41,7 @@ public class Collector {
 
             for (Country country : Country.values()) {
                 for (Direction direction : Direction.values()) {
-                    collectStatistics(baseDir, startTime, country, direction, checkpointNaming);
+                    tryCollectStatistics(baseDir, startTime, country, direction, checkpointNaming);
                 }
             }
 
@@ -49,17 +49,38 @@ public class Collector {
         }, 0, 3, TimeUnit.HOURS);
     }
 
+    private static void tryCollectStatistics(final File outputDirectory, final LocalDateTime startTime,
+                                             final Country country, final Direction direction,
+                                             final CheckpointNaming checkpointNaming) {
+        int attempts = 0;
+        boolean success = false;
+        while (attempts < 5 && !success) {
+            attempts++;
+            try {
+                collectStatistics(outputDirectory, startTime, country, direction, checkpointNaming);
+                success = true;
+            } catch (Exception ex) {
+                log.error(format("Failed to collect statistics for %s and direction %s", country, direction), ex);
+                waitFiveMinutes();
+            }
+        }
+    }
+
+    private static void waitFiveMinutes() {
+        try {
+            Thread.currentThread().wait(300000);
+        } catch (InterruptedException e) {
+            log.error(e.getMessage());
+        }
+    }
+
     private static void collectStatistics(final File outputDirectory, final LocalDateTime startTime,
                                           final Country country, final Direction direction,
-                                          final CheckpointNaming checkpointNaming) {
-        try {
-            final File countryDirectory = createDirectory(outputDirectory.getAbsoluteFile(), country.getReadableName());
-            final String url = format(urlPattern, country.name().toLowerCase(), direction.name().toLowerCase());
-            final Document document = Jsoup.connect(url).get();
-            extractDataFromHtml(startTime, direction, countryDirectory, url, document, checkpointNaming);
-        } catch (Exception ex) {
-            log.error(format("Failed to collect statistics for %s", country), ex);
-        }
+                                          final CheckpointNaming checkpointNaming) throws IOException {
+        final File countryDirectory = createDirectory(outputDirectory.getAbsoluteFile(), country.getReadableName());
+        final String url = format(urlPattern, country.name().toLowerCase(), direction.name().toLowerCase());
+        final Document document = Jsoup.connect(url).get();
+        extractDataFromHtml(startTime, direction, countryDirectory, url, document, checkpointNaming);
     }
 
     private static void extractDataFromHtml(final LocalDateTime startTime, final Direction direction,
