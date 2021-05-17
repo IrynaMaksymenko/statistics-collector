@@ -25,7 +25,7 @@ import static java.util.Collections.singletonList;
 
 public class Collector {
 
-    private static final String urlPattern = "http://kordon.sfs.gov.ua/uk/home/countries/%s/%s";
+    private static final String urlPattern = "https://kordon.customs.gov.ua/uk/home/countries/%s/%s";
     private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Logger log = LoggerFactory.getLogger(Collector.class);
 
